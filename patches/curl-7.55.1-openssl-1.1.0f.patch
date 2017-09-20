@@ -1,0 +1,58 @@
+diff -ur curl-7.55.1/lib/vtls/openssl.c ../curl-7.55.1/lib/vtls/openssl.c
+--- curl-7.55.1/lib/vtls/openssl.c	2017-08-13 09:10:42.000000000 -0700
++++ ../curl-7.55.1/lib/vtls/openssl.c	2017-09-19 22:17:27.827459232 -0700
+@@ -497,18 +497,17 @@
+     case SSL_FILETYPE_PKCS12:
+     {
+ #ifdef HAVE_OPENSSL_PKCS12_H
+-      FILE *f;
+-      PKCS12 *p12;
++      BIO *f = BIO_new(BIO_s_file());
++      PKCS12 *p12 = NULL;
+       EVP_PKEY *pri;
+       STACK_OF(X509) *ca = NULL;
+ 
+-      f = fopen(cert_file, "rb");
+-      if(!f) {
++      if(BIO_read_filename(f, cert_file) <= 0) {
+         failf(data, "could not open PKCS12 file '%s'", cert_file);
+         return 0;
+       }
+-      p12 = d2i_PKCS12_fp(f, NULL);
+-      fclose(f);
++      p12 = d2i_PKCS12_bio(f, NULL);
++      BIO_free(f);
+ 
+       if(!p12) {
+         failf(data, "error reading PKCS12 file '%s'", cert_file);
+@@ -2818,7 +2817,7 @@
+   long lerr, len;
+   struct Curl_easy *data = conn->data;
+   X509 *issuer;
+-  FILE *fp;
++  BIO *fp = BIO_new(BIO_s_file());
+   char buffer[2048];
+   const char *ptr;
+   long * const certverifyresult = SSL_IS_PROXY() ?
+@@ -2891,18 +2890,18 @@
+         return CURLE_SSL_ISSUER_ERROR;
+       }
+ 
+-      issuer = PEM_read_X509(fp, NULL, ZERO_NULL, NULL);
++      issuer = PEM_read_bio_X509(fp, NULL, ZERO_NULL, NULL);
+       if(!issuer) {
+         if(strict)
+           failf(data, "SSL: Unable to read issuer cert (%s)",
+                 SSL_SET_OPTION(issuercert));
+         X509_free(connssl->server_cert);
+         X509_free(issuer);
+-        fclose(fp);
++	BIO_free(fp);
+         return CURLE_SSL_ISSUER_ERROR;
+       }
+ 
+-      fclose(fp);
++      BIO_free(fp);
+ 
+       if(X509_check_issued(issuer, connssl->server_cert) != X509_V_OK) {
+         if(strict)
